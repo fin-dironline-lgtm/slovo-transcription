@@ -1,0 +1,24 @@
+name: Diagnose Slovo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.SLOVO_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 72.56.248.106 >> ~/.ssh/known_hosts
+
+      - name: Inspect Slovo
+        run: |
+          ssh root@72.56.248.106 'hostname; free -h; docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Networks}}"; docker inspect slovo-transcription --format "{{json .NetworkSettings.Networks}}"; docker logs --tail 80 slovo-transcription 2>&1; docker exec vector-nginx nginx -T 2>&1 | grep -A35 -B3 slovo.conf; docker exec vector-nginx wget -T 15 -S -O /dev/null http://slovo-transcription:3000/ 2>&1; curl -vkI --max-time 15 --resolve slovo.vector-mp.ru:443:127.0.0.1 https://slovo.vector-mp.ru/'
+
+      - name: External HTTPS check
+        run: curl -vkI --max-time 20 https://slovo.vector-mp.ru/
